@@ -1,0 +1,19 @@
+<resources>
+    <string name="action_retry">Retry</string>
+    <string name="action_back">Back</string>
+
+    <string name="placeholder_dash">—</string>
+
+    <string name="error_network">Network error. Check your connection.</string>
+    <string name="error_configuration">App configuration error. Check TMDB token configuration.</string>
+    <string name="error_unauthorized">Unauthorized. Check TMDB token configuration.</string>
+    <string name="error_not_found">Not found.</string>
+    <string name="error_movie_not_found">Movie not found.</string>
+    <string name="error_rate_limited">Too many requests. Please try again later.</string>
+    <string name="error_server">Server error. Please try again.</string>
+    <string name="error_server_http">Server error (HTTP %1$d).</string>
+    <string name="error_empty_result">No results found.</string>
+    <string name="error_unexpected_response">Unexpected response from server.</string>
+    <string name="error_something_went_wrong">Something went wrong.</string>
+</resources>
+

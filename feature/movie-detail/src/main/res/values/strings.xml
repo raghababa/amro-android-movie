@@ -1,0 +1,24 @@
+<resources>
+    <string name="title_details">Details</string>
+    <string name="cd_back">Back</string>
+
+    <string name="empty_no_data_available">No data available</string>
+    <string name="empty_no_poster">No poster</string>
+
+    <string name="section_overview">Overview</string>
+    <string name="section_stats">Stats</string>
+    <string name="stats_rating">Rating</string>
+    <string name="stats_votes">Votes</string>
+    <string name="stats_runtime">Runtime</string>
+    <string name="runtime_minutes">%1$dm</string>
+
+    <string name="section_financials">Financials</string>
+    <string name="stats_budget">Budget</string>
+    <string name="stats_revenue">Revenue</string>
+
+    <string name="section_status">Status</string>
+    <string name="section_release_date">Release date</string>
+
+    <string name="action_open_imdb">Open IMDb</string>
+</resources>
+

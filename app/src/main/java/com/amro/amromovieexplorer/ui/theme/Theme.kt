@@ -1,6 +1,5 @@
 package com.amro.amromovieexplorer.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -10,17 +9,19 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import com.amro.core.ui.theme.ProvideDimens
+import com.amro.core.ui.theme.ProvideSpacing
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = AMROColorTokens.PrimaryDark,
+    secondary = AMROColorTokens.SecondaryDark,
+    tertiary = AMROColorTokens.TertiaryDark,
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = AMROColorTokens.PrimaryLight,
+    secondary = AMROColorTokens.SecondaryLight,
+    tertiary = AMROColorTokens.TertiaryLight,
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
@@ -50,9 +51,13 @@ fun AMROMovieExplorerTheme(
         else -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    ProvideSpacing {
+        ProvideDimens {
+            MaterialTheme(
+                colorScheme = colorScheme,
+                typography = Typography,
+                content = content,
+            )
+        }
+    }
 }

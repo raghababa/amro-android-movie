@@ -17,6 +17,9 @@ android {
         val tmdbBaseUrl = providers.gradleProperty("TMDB_BASE_URL")
             .orNull
             ?: "https://api.themoviedb.org/3/"
+        val tmdbImageBaseUrl = providers.gradleProperty("TMDB_IMAGE_BASE_URL")
+            .orNull
+            ?: "https://image.tmdb.org/t/p/"
 
         val tmdbBearerToken = providers.gradleProperty("TMDB_BEARER_TOKEN").orNull ?: ""
         val allowMissingToken = providers.gradleProperty("ALLOW_MISSING_TMDB_TOKEN")
@@ -38,6 +41,7 @@ android {
         }
 
         buildConfigField("String", "TMDB_BASE_URL", "\"$tmdbBaseUrl\"")
+        buildConfigField("String", "TMDB_IMAGE_BASE_URL", "\"$tmdbImageBaseUrl\"")
         buildConfigField("String", "TMDB_BEARER_TOKEN", "\"$tmdbBearerToken\"")
         consumerProguardFiles("consumer-rules.pro")
     }
