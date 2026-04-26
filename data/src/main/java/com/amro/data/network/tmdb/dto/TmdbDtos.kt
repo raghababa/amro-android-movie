@@ -16,6 +16,7 @@ data class TmdbTrendingMovieDto(
     val id: Long,
     val title: String,
     @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("backdrop_path") val backdropPath: String? = null,
     @SerialName("genre_ids") val genreIds: List<Int> = emptyList(),
     val popularity: Double = 0.0,
     @SerialName("release_date") val releaseDate: String? = null,

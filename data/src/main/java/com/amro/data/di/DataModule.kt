@@ -1,5 +1,6 @@
 package com.amro.data.di
 
+import com.amro.data.image.TmdbImageBaseUrl
 import com.amro.data.image.TmdbImageUrlBuilder
 import com.amro.data.repository.MovieRepositoryImpl
 import dagger.Module
@@ -13,6 +14,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DataModule {
+
+    @Provides
+    @TmdbImageBaseUrl
+    fun provideTmdbImageBaseUrl(): String = "https://image.tmdb.org/t/p/"
 
     @Provides
     @Singleton
