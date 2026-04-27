@@ -11,12 +11,32 @@ sealed class DomainError(
         override val isRetryable: Boolean = true
     }
 
-    data class Http(
-        val code: Int,
-        val errorBody: String? = null,
+    data class Configuration(
         override val cause: Throwable? = null,
     ) : DomainError(cause = cause) {
-        override val isRetryable: Boolean = code >= 500
+        override val isRetryable: Boolean = false
+    }
+
+    data object Unauthorized : DomainError() {
+        override val isRetryable: Boolean = false
+    }
+
+    data object NotFound : DomainError() {
+        override val isRetryable: Boolean = false
+    }
+
+    data object RateLimited : DomainError() {
+        override val isRetryable: Boolean = true
+    }
+
+    data object Server : DomainError() {
+        override val isRetryable: Boolean = true
+    }
+
+    data class InvalidInput(
+        val field: String,
+    ) : DomainError() {
+        override val isRetryable: Boolean = false
     }
 
     data class Serialization(

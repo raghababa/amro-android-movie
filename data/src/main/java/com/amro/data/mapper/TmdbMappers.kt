@@ -30,6 +30,7 @@ internal fun TmdbGenreDto.toDomain(): Genre =
 
 internal fun TmdbMovieDetailDto.toDomain(
     posterUrl: String?,
+    backdropUrl: String?,
 ): MovieDetail =
     MovieDetail(
         id = id,
@@ -37,6 +38,7 @@ internal fun TmdbMovieDetailDto.toDomain(
         tagline = tagline,
         overview = overview,
         posterUrl = posterUrl,
+        backdropUrl = backdropUrl,
         genres = genres.map { it.toDomain() },
         voteAverage = voteAverage,
         voteCount = voteCount,

@@ -6,6 +6,7 @@ data class MovieDetail(
     val tagline: String?,
     val overview: String?,
     val posterUrl: String?,
+    val backdropUrl: String?,
     val genres: List<Genre>,
     val voteAverage: Double,
     val voteCount: Int,

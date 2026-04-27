@@ -22,7 +22,7 @@ interface MovieRepository {
 }
 
 enum class TimeWindow(val value: String) {
-    Day("day"),
-    Week("week"),
+    DAY("day"),
+    WEEK("week"),
 }
 

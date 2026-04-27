@@ -2,8 +2,8 @@ package com.amro.data.network
 
 import com.amro.domain.result.DomainError
 import com.amro.domain.result.DomainResult
+import com.amro.data.network.security.MissingTmdbTokenException
 import kotlinx.serialization.SerializationException
-import okhttp3.ResponseBody
 import retrofit2.Response
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
@@ -22,14 +22,13 @@ internal suspend inline fun <T> apiCall(
             }
         } else {
             DomainResult.Error(
-                DomainError.Http(
-                    code = response.code(),
-                    errorBody = response.errorBody()?.safeString(),
-                )
+                response.code().toDomainError()
             )
         }
     } catch (e: CancellationException) {
         throw e
+    } catch (e: MissingTmdbTokenException) {
+        DomainResult.Error(DomainError.Configuration(cause = e))
     } catch (e: IOException) {
         DomainResult.Error(DomainError.Network(cause = e))
     } catch (e: SerializationException) {
@@ -39,10 +38,12 @@ internal suspend inline fun <T> apiCall(
     }
 }
 
-internal fun ResponseBody.safeString(): String? =
-    try {
-        string()
-    } catch (_: Exception) {
-        null
+private fun Int.toDomainError(): DomainError =
+    when (this) {
+        401 -> DomainError.Unauthorized
+        404 -> DomainError.NotFound
+        429 -> DomainError.RateLimited
+        in 500..599 -> DomainError.Server
+        else -> DomainError.Unknown()
     }
 

@@ -34,5 +34,23 @@ class TmdbImageUrlBuilderTest {
         val url = builder.posterMedium("/abc.jpg")
         assertEquals("https://image.tmdb.org/t/p/w500/abc.jpg", url)
     }
+
+    @Test
+    fun `posterLarge uses w780`() {
+        val url = builder.posterLarge("/abc.jpg")
+        assertEquals("https://image.tmdb.org/t/p/w780/abc.jpg", url)
+    }
+
+    @Test
+    fun `buildBackdropUrl uses requested size`() {
+        val url = builder.buildBackdropUrl("/backdrop.jpg", TmdbImageUrlBuilder.ImageSize.W780)
+        assertEquals("https://image.tmdb.org/t/p/w780/backdrop.jpg", url)
+    }
+
+    @Test
+    fun `buildLogoUrl uses requested size`() {
+        val url = builder.buildLogoUrl("/logo.png", TmdbImageUrlBuilder.ImageSize.W154)
+        assertEquals("https://image.tmdb.org/t/p/w154/logo.png", url)
+    }
 }
 

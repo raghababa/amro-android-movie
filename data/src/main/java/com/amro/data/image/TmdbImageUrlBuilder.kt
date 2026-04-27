@@ -21,8 +21,8 @@ import javax.inject.Inject
  * - Lists use smaller thumbnails to save bandwidth and improve scrolling performance.
  * - Detail screens use larger posters for better quality.
  *
- * This builder hardcodes the default TMDB base URL for now (no `/configuration` call),
- * but it’s structured so the base URL can be injected later if/when we add configuration caching.
+ * The base URL is injected from build configuration for this assignment. A production app
+ * could replace that with TMDB `/configuration` plus caching.
  */
 class TmdbImageUrlBuilder @Inject constructor(
     @param:TmdbImageBaseUrl private val baseUrl: String,
@@ -69,8 +69,5 @@ class TmdbImageUrlBuilder @Inject constructor(
         return normalizedBase + size.tmdbValue.trim('/') + normalizedPath
     }
 
-    private companion object {
-        const val DEFAULT_BASE_URL = "https://image.tmdb.org/t/p/"
-    }
 }
 
