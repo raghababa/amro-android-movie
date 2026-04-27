@@ -51,7 +51,12 @@ sealed class DomainError(
         override val isRetryable: Boolean = false
     }
 
-    data class Empty(
+    /**
+     * Represents an unexpectedly empty result where the use case requires data.
+     *
+     * Valid empty states should remain successful empty collections and be interpreted by the UI.
+     */
+    data class UnexpectedEmpty(
         val what: String,
     ) : DomainError() {
         override val isRetryable: Boolean = false

@@ -18,7 +18,7 @@ internal fun TmdbTrendingMovieDto.toDomain(
         posterUrl = posterUrl,
         backdropUrl = backdropUrl,
         genres = genres,
-        popularity = popularity,
+        popularity = popularity ?: DEFAULT_POPULARITY,
         releaseDate = releaseDate,
     )
 
@@ -40,13 +40,18 @@ internal fun TmdbMovieDetailDto.toDomain(
         posterUrl = posterUrl,
         backdropUrl = backdropUrl,
         genres = genres.map { it.toDomain() },
-        voteAverage = voteAverage,
-        voteCount = voteCount,
-        budget = budget,
-        revenue = revenue,
+        voteAverage = voteAverage ?: DEFAULT_VOTE_AVERAGE,
+        voteCount = voteCount ?: DEFAULT_VOTE_COUNT,
+        budget = budget ?: DEFAULT_BUDGET,
+        revenue = revenue ?: DEFAULT_REVENUE,
         status = status,
         imdbId = imdbId,
         runtimeMinutes = runtimeMinutes,
         releaseDate = releaseDate,
     )
 
+private const val DEFAULT_POPULARITY = 0.0
+private const val DEFAULT_VOTE_AVERAGE = 0.0
+private const val DEFAULT_VOTE_COUNT = 0
+private const val DEFAULT_BUDGET = 0L
+private const val DEFAULT_REVENUE = 0L

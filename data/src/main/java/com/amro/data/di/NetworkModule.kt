@@ -2,6 +2,10 @@ package com.amro.data.di
 
 import com.amro.data.BuildConfig
 import com.amro.data.network.security.AuthInterceptor
+import com.amro.data.network.security.TokenProvider
+import com.amro.data.network.tmdb.TmdbApi
+import com.amro.data.network.tmdb.TmdbBaseUrl
+import com.amro.data.network.tmdb.TmdbBearerToken
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,7 +18,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
-import com.amro.data.network.tmdb.TmdbApi
+
+private const val NETWORK_TIMEOUT_SECONDS = 15L
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -30,8 +35,26 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthInterceptor(): AuthInterceptor =
-        AuthInterceptor(tokenProvider = { BuildConfig.TMDB_BEARER_TOKEN })
+    @TmdbBaseUrl
+    fun provideTmdbBaseUrl(): String = BuildConfig.TMDB_BASE_URL
+
+    @Provides
+    @Singleton
+    @TmdbBearerToken
+    fun provideTmdbBearerToken(): String = BuildConfig.TMDB_BEARER_TOKEN
+
+    @Provides
+    @Singleton
+    fun provideTmdbTokenProvider(
+        @TmdbBearerToken token: String,
+    ): TokenProvider = TokenProvider { token }
+
+    @Provides
+    @Singleton
+    fun provideAuthInterceptor(
+        tokenProvider: TokenProvider,
+    ): AuthInterceptor =
+        AuthInterceptor(tokenProvider = tokenProvider)
 
     @Provides
     @Singleton
@@ -40,9 +63,9 @@ object NetworkModule {
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         if (BuildConfig.DEBUG) {
             val logging = HttpLoggingInterceptor().apply {
@@ -60,10 +83,11 @@ object NetworkModule {
     fun provideRetrofit(
         okHttpClient: OkHttpClient,
         json: Json,
+        @TmdbBaseUrl baseUrl: String,
     ): Retrofit {
         val contentType = "application/json".toMediaType()
         return Retrofit.Builder()
-            .baseUrl(BuildConfig.TMDB_BASE_URL)
+            .baseUrl(baseUrl)
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory(contentType))
             .build()

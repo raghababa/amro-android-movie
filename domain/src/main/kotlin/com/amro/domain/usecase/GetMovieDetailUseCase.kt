@@ -1,6 +1,7 @@
 package com.amro.domain.usecase
 
 import com.amro.domain.model.MovieDetail
+import com.amro.domain.repository.LanguageCode
 import com.amro.domain.repository.MovieRepository
 import com.amro.domain.result.DomainError
 import com.amro.domain.result.DomainResult
@@ -11,7 +12,7 @@ class GetMovieDetailUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(
         movieId: Long,
-        language: String = "en-US",
+        language: LanguageCode = LanguageCode.EN_US,
     ): DomainResult<MovieDetail> {
         if (movieId <= 0) {
             return DomainResult.Error(DomainError.InvalidInput(field = "movieId"))

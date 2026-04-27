@@ -5,7 +5,11 @@ import com.amro.data.image.TmdbImageUrlBuilder
 import com.amro.data.network.security.AuthInterceptor
 import com.amro.data.network.tmdb.TmdbApi
 import com.amro.data.remote.TmdbRemoteDataSourceImpl
+import com.amro.data.repository.DefaultGenreLanguageResolver
+import com.amro.data.repository.InMemoryGenreCache
 import com.amro.data.repository.MovieRepositoryImpl
+import com.amro.data.repository.TrendingMoviesConfig
+import com.amro.domain.repository.LanguageCode
 import com.amro.domain.repository.TimeWindow
 import com.amro.domain.result.DomainError
 import com.amro.domain.result.DomainResult
@@ -47,6 +51,9 @@ class TmdbDataIntegrationTest {
         repository = MovieRepositoryImpl(
             remoteDataSource = remoteDataSource,
             imageUrlBuilder = TmdbImageUrlBuilder("https://image.tmdb.org/t/p/"),
+            genreCache = InMemoryGenreCache(),
+            genreLanguageResolver = DefaultGenreLanguageResolver(),
+            trendingMoviesConfig = TrendingMoviesConfig(),
         )
     }
 
@@ -101,7 +108,7 @@ class TmdbDataIntegrationTest {
             )
         )
 
-        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = "en-US")
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
 
         assertTrue(result is DomainResult.Success)
         val movies = (result as DomainResult.Success).value
@@ -149,7 +156,7 @@ class TmdbDataIntegrationTest {
             )
         )
 
-        val result = repository.getMovieDetail(movieId = 42, language = "en-US")
+        val result = repository.getMovieDetail(movieId = 42, language = LanguageCode.EN_US)
 
         assertTrue(result is DomainResult.Success)
         val movie = (result as DomainResult.Success).value
@@ -169,7 +176,7 @@ class TmdbDataIntegrationTest {
     fun `remote API error is exposed as domain error through repository`() = runTest {
         server.enqueue(jsonResponse("""{"status_message":"Invalid token"}""", code = 401))
 
-        val result = repository.getMovieDetail(movieId = 42, language = "en-US")
+        val result = repository.getMovieDetail(movieId = 42, language = LanguageCode.EN_US)
 
         assertEquals(DomainResult.Error(DomainError.Unauthorized), result)
     }

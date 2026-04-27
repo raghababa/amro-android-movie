@@ -6,37 +6,36 @@ import com.amro.data.remote.TmdbRemoteDataSource
 import com.amro.domain.model.Genre
 import com.amro.domain.model.MovieDetail
 import com.amro.domain.model.MovieSummary
+import com.amro.domain.repository.LanguageCode
 import com.amro.domain.repository.MovieRepository
 import com.amro.domain.repository.TimeWindow
 import com.amro.domain.result.DomainError
 import com.amro.domain.result.DomainResult
+import javax.inject.Inject
 
-internal class MovieRepositoryImpl(
+internal class MovieRepositoryImpl @Inject constructor(
     private val remoteDataSource: TmdbRemoteDataSource,
     private val imageUrlBuilder: TmdbImageUrlBuilder,
+    private val genreCache: GenreCache,
+    private val genreLanguageResolver: GenreLanguageResolver,
+    private val trendingMoviesConfig: TrendingMoviesConfig,
 ) : MovieRepository {
-
-    private var cachedGenres: Map<String, List<Genre>> = emptyMap()
 
     override suspend fun getTrendingMovies(
         timeWindow: TimeWindow,
-        language: String,
+        language: LanguageCode,
     ): DomainResult<List<MovieSummary>> {
-        val genreLanguage = language.substringBefore('-').ifBlank { "en" }
-        val genresResult = getGenresCached(language = genreLanguage)
-        val genresById: Map<Int, Genre> = when (genresResult) {
-            is DomainResult.Success -> genresResult.value.associateBy { it.id }
-            is DomainResult.Error -> return genresResult
-        }
+        val genresById = getTrendingGenresByIdOrEmpty(language = language)
 
         val movies = mutableListOf<MovieSummary>()
         val seenIds = HashSet<Long>()
+        var page = 1
 
-        for (page in 1..5) {
+        while (movies.size < trendingMoviesConfig.movieLimit) {
             val pageResult =
                 remoteDataSource.getTrendingMovies(
                     timeWindow = timeWindow.value,
-                    language = language,
+                    language = language.value,
                     page = page,
                 )
             when (pageResult) {
@@ -52,35 +51,43 @@ internal class MovieRepositoryImpl(
                             ),
                             genres = mappedGenres,
                         )
-                        if (movies.size >= 100) break
+                        if (movies.size >= trendingMoviesConfig.movieLimit) break
                     }
 
-                    val totalPages = pageResult.value.totalPages ?: 1
+                    val totalPages = pageResult.value.totalPages ?: break
                     if (page >= totalPages) break
+                    page++
                 }
 
                 is DomainResult.Error -> return pageResult
             }
-
-            if (movies.size >= 100) break
         }
 
         if (movies.isEmpty()) {
-            return DomainResult.Error(DomainError.Empty("Trending movies"))
+            return DomainResult.Error(DomainError.UnexpectedEmpty("Trending movies"))
         }
 
-        return DomainResult.Success(movies.take(100))
+        return DomainResult.Success(movies.take(trendingMoviesConfig.movieLimit))
     }
 
-    override suspend fun getMovieGenres(language: String): DomainResult<List<Genre>> =
-        getGenresCached(language = language)
+    override suspend fun getMovieGenres(language: LanguageCode): DomainResult<List<Genre>> =
+        getGenresCached(language = language.value)
+
+    private suspend fun getTrendingGenresByIdOrEmpty(language: LanguageCode): Map<Int, Genre> {
+        val genreLanguage = genreLanguageResolver.resolve(language)
+        return when (val genresResult = getGenresCached(language = genreLanguage)) {
+            is DomainResult.Success -> genresResult.value.associateBy { it.id }
+            // Trending should remain usable even if genre labels are temporarily unavailable.
+            is DomainResult.Error -> emptyMap()
+        }
+    }
 
     private suspend fun getGenresCached(language: String): DomainResult<List<Genre>> {
-        cachedGenres[language]?.let { return DomainResult.Success(it) }
+        genreCache.get(language)?.let { return DomainResult.Success(it) }
 
         return when (val result = fetchGenres(language = language)) {
             is DomainResult.Success -> {
-                cachedGenres = cachedGenres + (language to result.value)
+                genreCache.put(language = language, genres = result.value)
                 result
             }
 
@@ -95,8 +102,8 @@ internal class MovieRepositoryImpl(
             is DomainResult.Error -> result
         }
 
-    override suspend fun getMovieDetail(movieId: Long, language: String): DomainResult<MovieDetail> {
-        val result = remoteDataSource.getMovieDetail(movieId = movieId, language = language)
+    override suspend fun getMovieDetail(movieId: Long, language: LanguageCode): DomainResult<MovieDetail> {
+        val result = remoteDataSource.getMovieDetail(movieId = movieId, language = language.value)
 
         return when (result) {
 

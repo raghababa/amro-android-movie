@@ -22,7 +22,8 @@ import javax.inject.Inject
  * - Detail screens use larger posters for better quality.
  *
  * The base URL is injected from build configuration for this assignment. A production app
- * could replace that with TMDB `/configuration` plus caching.
+ * could fetch it from TMDB's `/configuration` endpoint and cache the image base URL plus
+ * supported sizes.
  */
 class TmdbImageUrlBuilder @Inject constructor(
     @param:TmdbImageBaseUrl private val baseUrl: String,
@@ -59,15 +60,12 @@ class TmdbImageUrlBuilder @Inject constructor(
         val raw = path?.trim().orEmpty()
         if (raw.isBlank()) return null
 
-        // Normalize to exactly one leading slash.
-        val normalizedPath = "/" + raw.trimStart('/')
-
-        // Ensure baseUrl ends with exactly one slash.
-        val normalizedBase = baseUrl.trimEnd('/') + "/"
-
-        // Avoid duplicate slashes even if size string changes.
-        return normalizedBase + size.tmdbValue.trim('/') + normalizedPath
+        return normalizeBase(baseUrl) + size.tmdbValue.trim('/') + normalizePath(raw)
     }
 
 }
+
+private fun normalizePath(path: String): String = "/" + path.trimStart('/')
+
+private fun normalizeBase(url: String): String = url.trimEnd('/') + "/"
 

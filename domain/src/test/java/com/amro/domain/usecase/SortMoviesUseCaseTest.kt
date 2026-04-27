@@ -62,7 +62,7 @@ class SortMoviesUseCaseTest {
     }
 
     @Test
-    fun `sorts by release date ascending with missing dates first`() {
+    fun `sorts by release date ascending with missing dates last`() {
         val movies = listOf(
             movie(id = 1, releaseDate = "2024-01-01"),
             movie(id = 2, releaseDate = null),
@@ -75,7 +75,7 @@ class SortMoviesUseCaseTest {
             sortOrder = SortOrder.ASCENDING,
         )
 
-        assertEquals(listOf(2L, 3L, 1L), result.map { it.id })
+        assertEquals(listOf(3L, 1L, 2L), result.map { it.id })
     }
 
     @Test
@@ -93,6 +93,24 @@ class SortMoviesUseCaseTest {
         )
 
         assertEquals(listOf(1L, 3L, 2L), result.map { it.id })
+    }
+
+    @Test
+    fun `sorts by release date with invalid dates last`() {
+        val movies = listOf(
+            movie(id = 1, releaseDate = "2024-01-01"),
+            movie(id = 2, releaseDate = "not-a-date"),
+            movie(id = 3, releaseDate = "2023-01-01"),
+            movie(id = 4, releaseDate = " "),
+        )
+
+        val result = useCase(
+            movies = movies,
+            sortField = MovieSortField.RELEASE_DATE,
+            sortOrder = SortOrder.ASCENDING,
+        )
+
+        assertEquals(listOf(3L, 1L, 2L, 4L), result.map { it.id })
     }
 
     private fun movie(

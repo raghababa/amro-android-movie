@@ -7,6 +7,7 @@ import com.amro.data.network.tmdb.dto.TmdbMovieDetailDto
 import com.amro.data.network.tmdb.dto.TmdbTrendingMovieDto
 import com.amro.data.network.tmdb.dto.TmdbTrendingMoviesResponse
 import com.amro.data.remote.TmdbRemoteDataSource
+import com.amro.domain.repository.LanguageCode
 import com.amro.domain.repository.TimeWindow
 import com.amro.domain.result.DomainError
 import com.amro.domain.result.DomainResult
@@ -17,15 +18,13 @@ import org.junit.Test
 
 class MovieRepositoryImplTest {
 
-    private val imageUrlBuilder = TmdbImageUrlBuilder("https://image.tmdb.org/t/p/")
-
     @Test
     fun `getTrendingMovies caches genres by language`() = runTest {
         val remoteDataSource = FakeTmdbRemoteDataSource(totalPages = 1)
-        val repository = MovieRepositoryImpl(remoteDataSource, imageUrlBuilder)
+        val repository = repository(remoteDataSource)
 
-        repository.getTrendingMovies(timeWindow = TimeWindow.DAY, language = "en-US")
-        repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = "en-US")
+        repository.getTrendingMovies(timeWindow = TimeWindow.DAY, language = LanguageCode.EN_US)
+        repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
 
         assertEquals(listOf("en"), remoteDataSource.genreLanguages)
     }
@@ -33,9 +32,9 @@ class MovieRepositoryImplTest {
     @Test
     fun `getTrendingMovies stops when current page reaches total pages`() = runTest {
         val remoteDataSource = FakeTmdbRemoteDataSource(totalPages = 1)
-        val repository = MovieRepositoryImpl(remoteDataSource, imageUrlBuilder)
+        val repository = repository(remoteDataSource)
 
-        repository.getTrendingMovies(timeWindow = TimeWindow.DAY, language = "en-US")
+        repository.getTrendingMovies(timeWindow = TimeWindow.DAY, language = LanguageCode.EN_US)
 
         assertEquals(listOf(1), remoteDataSource.trendingPages)
     }
@@ -49,9 +48,9 @@ class MovieRepositoryImplTest {
             ),
             totalPages = 2,
         )
-        val repository = MovieRepositoryImpl(remoteDataSource, imageUrlBuilder)
+        val repository = repository(remoteDataSource)
 
-        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = "en-US")
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
 
         assertTrue(result is DomainResult.Success)
         assertEquals(listOf(1L, 2L, 3L), (result as DomainResult.Success).value.map { it.id })
@@ -66,9 +65,9 @@ class MovieRepositoryImplTest {
             trendingByPage = trendingByPage,
             totalPages = 5,
         )
-        val repository = MovieRepositoryImpl(remoteDataSource, imageUrlBuilder)
+        val repository = repository(remoteDataSource)
 
-        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = "en-US")
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
 
         assertTrue(result is DomainResult.Success)
         val movies = (result as DomainResult.Success).value
@@ -78,29 +77,73 @@ class MovieRepositoryImplTest {
     }
 
     @Test
+    fun `getTrendingMovies keeps requesting pages until result limit is reached`() = runTest {
+        val trendingByPage = (1..6).associateWith { page ->
+            (1..17).map { index -> trendingMovie(id = ((page - 1) * 17 + index).toLong()) }
+        }
+        val remoteDataSource = FakeTmdbRemoteDataSource(
+            trendingByPage = trendingByPage,
+            totalPages = 6,
+        )
+        val repository = repository(remoteDataSource)
+
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
+
+        assertTrue(result is DomainResult.Success)
+        val movies = (result as DomainResult.Success).value
+        assertEquals(100, movies.size)
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), remoteDataSource.trendingPages)
+        assertEquals(100L, movies.last().id)
+    }
+
+    @Test
+    fun `getTrendingMovies uses configured result limit`() = runTest {
+        val remoteDataSource = FakeTmdbRemoteDataSource(
+            trendingByPage = mapOf(
+                1 to listOf(trendingMovie(id = 1), trendingMovie(id = 2)),
+                2 to listOf(trendingMovie(id = 3), trendingMovie(id = 4)),
+            ),
+            totalPages = 2,
+        )
+        val repository = repository(
+            remoteDataSource = remoteDataSource,
+            trendingMoviesConfig = TrendingMoviesConfig(movieLimit = 3),
+        )
+
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
+
+        assertTrue(result is DomainResult.Success)
+        val movies = (result as DomainResult.Success).value
+        assertEquals(listOf(1L, 2L, 3L), movies.map { it.id })
+        assertEquals(listOf(1, 2), remoteDataSource.trendingPages)
+    }
+
+    @Test
     fun `getTrendingMovies returns empty error when API returns no movies`() = runTest {
         val remoteDataSource = FakeTmdbRemoteDataSource(
             trendingByPage = mapOf(1 to emptyList()),
             totalPages = 1,
         )
-        val repository = MovieRepositoryImpl(remoteDataSource, imageUrlBuilder)
+        val repository = repository(remoteDataSource)
 
-        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = "en-US")
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
 
-        assertEquals(DomainResult.Error(DomainError.Empty("Trending movies")), result)
+        assertEquals(DomainResult.Error(DomainError.UnexpectedEmpty("Trending movies")), result)
     }
 
     @Test
-    fun `getTrendingMovies returns genre error before requesting trending movies`() = runTest {
+    fun `getTrendingMovies continues with empty genres when genres fail`() = runTest {
         val remoteDataSource = FakeTmdbRemoteDataSource(
             genresResult = DomainResult.Error(DomainError.Network()),
         )
-        val repository = MovieRepositoryImpl(remoteDataSource, imageUrlBuilder)
+        val repository = repository(remoteDataSource)
 
-        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = "en-US")
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
 
-        assertEquals(DomainResult.Error(DomainError.Network()), result)
-        assertEquals(emptyList<Int>(), remoteDataSource.trendingPages)
+        assertTrue(result is DomainResult.Success)
+        val movie = (result as DomainResult.Success).value.single()
+        assertEquals(emptyList<String>(), movie.genres.map { it.name })
+        assertEquals(listOf(1), remoteDataSource.trendingPages)
     }
 
     @Test
@@ -118,9 +161,9 @@ class MovieRepositoryImplTest {
             ),
             totalPages = 1,
         )
-        val repository = MovieRepositoryImpl(remoteDataSource, imageUrlBuilder)
+        val repository = repository(remoteDataSource)
 
-        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = "en-US")
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
 
         assertTrue(result is DomainResult.Success)
         val movie = (result as DomainResult.Success).value.single()
@@ -150,9 +193,9 @@ class MovieRepositoryImplTest {
                 )
             )
         )
-        val repository = MovieRepositoryImpl(remoteDataSource, imageUrlBuilder)
+        val repository = repository(remoteDataSource)
 
-        val result = repository.getMovieDetail(movieId = 42, language = "en-US")
+        val result = repository.getMovieDetail(movieId = 42, language = LanguageCode.EN_US)
 
         assertTrue(result is DomainResult.Success)
         val detail = (result as DomainResult.Success).value
@@ -204,6 +247,18 @@ class MovieRepositoryImplTest {
     }
 
     private companion object {
+        fun repository(
+            remoteDataSource: TmdbRemoteDataSource,
+            trendingMoviesConfig: TrendingMoviesConfig = TrendingMoviesConfig(),
+        ): MovieRepositoryImpl =
+            MovieRepositoryImpl(
+                remoteDataSource = remoteDataSource,
+                imageUrlBuilder = TmdbImageUrlBuilder("https://image.tmdb.org/t/p/"),
+                genreCache = InMemoryGenreCache(),
+                genreLanguageResolver = DefaultGenreLanguageResolver(),
+                trendingMoviesConfig = trendingMoviesConfig,
+            )
+
         fun trendingMovie(
             id: Long,
             posterPath: String? = null,

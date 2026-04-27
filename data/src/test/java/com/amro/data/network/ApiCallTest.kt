@@ -90,11 +90,13 @@ class ApiCallTest {
     }
 
     @Test
-    fun `apiCall maps successful null body to unknown error`() = runTest {
+    fun `apiCall maps successful null body to unexpected empty error`() = runTest {
         val result = apiCall<String> { Response.success(null) }
 
-        assertTrue(result is DomainResult.Error)
-        assertTrue((result as DomainResult.Error).error is DomainError.Unknown)
+        assertEquals(
+            DomainResult.Error(DomainError.UnexpectedEmpty("Response body")),
+            result,
+        )
     }
 
     @Test
@@ -121,26 +123,35 @@ class ApiCallTest {
 
     @Test
     fun `apiCall maps io exception to network error`() = runTest {
-        val result = apiCall<String> { throw IOException("No connection") }
+        val cause = IOException("No connection")
+        val result = apiCall<String> { throw cause }
 
         assertTrue(result is DomainResult.Error)
-        assertTrue((result as DomainResult.Error).error is DomainError.Network)
+        val error = (result as DomainResult.Error).error
+        assertTrue(error is DomainError.Network)
+        assertEquals(cause, error.cause)
     }
 
     @Test
     fun `apiCall maps serialization exception to serialization error`() = runTest {
-        val result = apiCall<String> { throw SerializationException("Bad json") }
+        val cause = SerializationException("Bad json")
+        val result = apiCall<String> { throw cause }
 
         assertTrue(result is DomainResult.Error)
-        assertTrue((result as DomainResult.Error).error is DomainError.Serialization)
+        val error = (result as DomainResult.Error).error
+        assertTrue(error is DomainError.Serialization)
+        assertEquals(cause, error.cause)
     }
 
     @Test
     fun `apiCall maps missing token exception to configuration error`() = runTest {
-        val result = apiCall<String> { throw MissingTmdbTokenException() }
+        val cause = MissingTmdbTokenException()
+        val result = apiCall<String> { throw cause }
 
         assertTrue(result is DomainResult.Error)
-        assertTrue((result as DomainResult.Error).error is DomainError.Configuration)
+        val error = (result as DomainResult.Error).error
+        assertTrue(error is DomainError.Configuration)
+        assertEquals(cause, error.cause)
     }
 
     @Test

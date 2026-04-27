@@ -3,6 +3,7 @@ package com.amro.domain.usecase
 import com.amro.domain.model.Genre
 import com.amro.domain.model.MovieDetail
 import com.amro.domain.model.MovieSummary
+import com.amro.domain.repository.LanguageCode
 import com.amro.domain.repository.MovieRepository
 import com.amro.domain.repository.TimeWindow
 import com.amro.domain.result.DomainError
@@ -31,31 +32,31 @@ class GetMovieDetailUseCaseTest {
         val repository = FakeMovieRepository()
         val useCase = GetMovieDetailUseCase(repository)
 
-        val result = useCase(movieId = 42, language = "nl-NL")
+        val result = useCase(movieId = 42, language = LanguageCode("nl-NL"))
 
         assertEquals(1, repository.detailCalls)
         assertEquals(42L, repository.lastMovieId)
-        assertEquals("nl-NL", repository.lastLanguage)
+        assertEquals(LanguageCode("nl-NL"), repository.lastLanguage)
         assertTrue(result is DomainResult.Success)
     }
 
     private class FakeMovieRepository : MovieRepository {
         var detailCalls = 0
         var lastMovieId: Long? = null
-        var lastLanguage: String? = null
+        var lastLanguage: LanguageCode? = null
 
         override suspend fun getTrendingMovies(
             timeWindow: TimeWindow,
-            language: String,
+            language: LanguageCode,
         ): DomainResult<List<MovieSummary>> =
             DomainResult.Success(emptyList())
 
-        override suspend fun getMovieGenres(language: String): DomainResult<List<Genre>> =
+        override suspend fun getMovieGenres(language: LanguageCode): DomainResult<List<Genre>> =
             DomainResult.Success(emptyList())
 
         override suspend fun getMovieDetail(
             movieId: Long,
-            language: String,
+            language: LanguageCode,
         ): DomainResult<MovieDetail> {
             detailCalls++
             lastMovieId = movieId

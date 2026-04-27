@@ -18,7 +18,7 @@ internal suspend inline fun <T> apiCall(
             if (body != null) {
                 DomainResult.Success(body)
             } else {
-                DomainResult.Error(DomainError.Unknown(cause = NullPointerException("Body was null")))
+                DomainResult.Error(DomainError.UnexpectedEmpty("Response body"))
             }
         } else {
             DomainResult.Error(

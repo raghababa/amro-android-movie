@@ -38,6 +38,22 @@ class TmdbMappersTest {
     }
 
     @Test
+    fun `trending movie dto defaults missing popularity in mapper`() {
+        val dto = TmdbTrendingMovieDto(
+            id = 10,
+            title = "Heat",
+        )
+
+        val result = dto.toDomain(
+            posterUrl = null,
+            backdropUrl = null,
+            genres = emptyList(),
+        )
+
+        assertEquals(0.0, result.popularity, 0.0)
+    }
+
+    @Test
     fun `genre dto maps to domain genre`() {
         val result = TmdbGenreDto(id = 35, name = "Comedy").toDomain()
 
@@ -85,5 +101,23 @@ class TmdbMappersTest {
         assertEquals("tt1375666", result.imdbId)
         assertEquals(148, result.runtimeMinutes)
         assertEquals("2010-07-15", result.releaseDate)
+    }
+
+    @Test
+    fun `movie detail dto defaults missing numeric metadata in mapper`() {
+        val dto = TmdbMovieDetailDto(
+            id = 20,
+            title = "Inception",
+        )
+
+        val result = dto.toDomain(
+            posterUrl = null,
+            backdropUrl = null,
+        )
+
+        assertEquals(0.0, result.voteAverage, 0.0)
+        assertEquals(0, result.voteCount)
+        assertEquals(0L, result.budget)
+        assertEquals(0L, result.revenue)
     }
 }
