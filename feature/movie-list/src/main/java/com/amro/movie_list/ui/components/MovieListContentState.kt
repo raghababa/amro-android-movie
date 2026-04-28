@@ -22,6 +22,7 @@ import com.amro.domain.model.SortOrder
 import com.amro.core.ui.theme.spacing
 import com.amro.movie_list.ui.testtags.MovieListTestTags
 import com.amro.movie_list.ui.action.MovieListAction
+import com.amro.movie_list.ui.state.MovieListConfig
 import com.amro.movie_list.ui.state.MovieListUiState
 
 @Composable
@@ -31,11 +32,12 @@ fun MovieListContentState(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    val config = state.config
 
     LaunchedEffect(
-        state.selectedGenreId,
-        state.sortField,
-        state.sortOrder,
+        config.selectedGenreId,
+        config.sortField,
+        config.sortOrder,
     ) {
         listState.animateScrollToItem(0)
     }
@@ -52,22 +54,27 @@ fun MovieListContentState(
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.sm))
 
         GenreFilterRow(
-            genres = state.availableGenres,
-            selectedGenreId = state.selectedGenreId,
+            genres = config.availableGenres,
+            selectedGenreId = config.selectedGenreId,
             onSelectGenre = { onAction(MovieListAction.SelectGenre(it)) },
             modifier = Modifier.fillMaxWidth(),
+        )
+
+        GenreLoadWarning(
+            message = config.genreError,
+            modifier = Modifier.padding(top = MaterialTheme.spacing.xs),
         )
 
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.sm))
 
         SortSection(
-            sortField = state.sortField,
-            sortOrder = state.sortOrder,
+            sortField = config.sortField,
+            sortOrder = config.sortOrder,
             onChangeSortField = { onAction(MovieListAction.ChangeSortField(it)) },
             onChangeSortOrder = { onAction(MovieListAction.ChangeSortOrder(it)) },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = MaterialTheme.spacing.lg),
+                .padding(horizontal = MaterialTheme.spacing.screenHorizontal),
         )
 
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.sm))
@@ -77,7 +84,7 @@ fun MovieListContentState(
                 .fillMaxSize()
                 .testTag(MovieListTestTags.LIST),
             state = listState,
-            contentPadding = PaddingValues(horizontal = MaterialTheme.spacing.lg, vertical = MaterialTheme.spacing.md),
+            contentPadding = PaddingValues(horizontal = MaterialTheme.spacing.screenHorizontal, vertical = MaterialTheme.spacing.md),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md),
         ) {
             items(state.movies, key = { it.id }) { movie ->
@@ -100,10 +107,12 @@ private fun PreviewMovieListContentState() {
         MovieListContentState(
             state = MovieListUiState.Content(
                 movies = previewMovies,
-                availableGenres = previewGenres,
-                selectedGenreId = null,
-                sortField = MovieSortField.POPULARITY,
-                sortOrder = SortOrder.DESCENDING,
+                config = MovieListConfig(
+                    availableGenres = previewGenres,
+                    selectedGenreId = null,
+                    sortField = MovieSortField.POPULARITY,
+                    sortOrder = SortOrder.DESCENDING,
+                ),
             ),
             onAction = {},
         )

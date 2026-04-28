@@ -61,4 +61,20 @@ class AuthInterceptorTest {
         assertEquals("application/json", recordedRequest.getHeader("Accept"))
         assertEquals("Bearer token", recordedRequest.getHeader("Authorization"))
     }
+
+    @Test
+    fun `interceptor trims token before authorization header`() {
+        server.enqueue(MockResponse().setResponseCode(200))
+        val client = OkHttpClient.Builder()
+            .addInterceptor(AuthInterceptor(tokenProvider = { "  token  " }))
+            .build()
+        val request = Request.Builder()
+            .url(server.url("/movie"))
+            .build()
+
+        client.newCall(request).execute().close()
+
+        val recordedRequest = server.takeRequest()
+        assertEquals("Bearer token", recordedRequest.getHeader("Authorization"))
+    }
 }

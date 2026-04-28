@@ -22,6 +22,7 @@ import com.amro.core.ui.theme.spacing
 import com.amro.movie_list.R
 import com.amro.movie_list.ui.testtags.MovieListTestTags
 import com.amro.movie_list.ui.action.MovieListAction
+import com.amro.movie_list.ui.state.MovieListConfig
 import com.amro.movie_list.ui.state.MovieListUiState
 
 @Composable
@@ -30,22 +31,29 @@ fun MovieListEmptyState(
     onAction: (MovieListAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val config = state.config
     Column(modifier = modifier.fillMaxSize()) {
         GenreFilterRow(
-            genres = state.availableGenres,
-            selectedGenreId = state.selectedGenreId,
+            genres = config.availableGenres,
+            selectedGenreId = config.selectedGenreId,
             onSelectGenre = { onAction(MovieListAction.SelectGenre(it)) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth()
+                .padding(top = MaterialTheme.spacing.lg),
+        )
+
+        GenreLoadWarning(
+            message = config.genreError,
+            modifier = Modifier.padding(top = MaterialTheme.spacing.xs),
         )
 
         SortSection(
-            sortField = state.sortField,
-            sortOrder = state.sortOrder,
+            sortField = config.sortField,
+            sortOrder = config.sortOrder,
             onChangeSortField = { onAction(MovieListAction.ChangeSortField(it)) },
             onChangeSortOrder = { onAction(MovieListAction.ChangeSortOrder(it)) },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = MaterialTheme.spacing.lg),
+                .padding(horizontal = MaterialTheme.spacing.screenHorizontal),
         )
 
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.sm))
@@ -59,11 +67,11 @@ fun MovieListEmptyState(
         ) {
             Text(
                 text = stringResource(
-                    if (state.selectedGenreId != null) R.string.empty_no_movies_match_filter else R.string.empty_no_movies_found
+                    if (config.hasActiveFilter()) R.string.empty_no_movies_match_filter else R.string.empty_no_movies_found
                 ),
                 style = MaterialTheme.typography.bodyLarge,
             )
-            if (state.selectedGenreId != null) {
+            if (config.hasActiveFilter()) {
                 Spacer(modifier = Modifier.height(MaterialTheme.spacing.lg))
                 OutlinedButton(
                     onClick = { onAction(MovieListAction.SelectGenre(null)) },
@@ -82,10 +90,12 @@ private fun PreviewMovieListEmptyState() {
     MaterialTheme {
         MovieListEmptyState(
             state = MovieListUiState.Empty(
-                availableGenres = previewGenres,
-                selectedGenreId = 35,
-                sortField = MovieSortField.POPULARITY,
-                sortOrder = SortOrder.DESCENDING,
+                config = MovieListConfig(
+                    availableGenres = previewGenres,
+                    selectedGenreId = 35,
+                    sortField = MovieSortField.POPULARITY,
+                    sortOrder = SortOrder.DESCENDING,
+                ),
             ),
             onAction = {},
         )

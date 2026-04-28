@@ -2,6 +2,7 @@
     <string name="filter_all">All</string>
 
     <string name="cd_movie_poster">Poster for %1$s</string>
+    <string name="cd_open_movie_details">Open details for %1$s</string>
 
     <string name="empty_no_movies_found">No movies found</string>
     <string name="empty_no_movies_match_filter">No movies match this filter</string>

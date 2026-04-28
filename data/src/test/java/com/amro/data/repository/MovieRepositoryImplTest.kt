@@ -40,6 +40,18 @@ class MovieRepositoryImplTest {
     }
 
     @Test
+    fun `getTrendingMovies stops when total pages is null`() = runTest {
+        val remoteDataSource = FakeTmdbRemoteDataSource(totalPages = null)
+        val repository = repository(remoteDataSource)
+
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.DAY, language = LanguageCode.EN_US)
+
+        assertTrue(result is DomainResult.Success)
+        assertEquals(listOf(1L), (result as DomainResult.Success).value.map { it.id })
+        assertEquals(listOf(1), remoteDataSource.trendingPages)
+    }
+
+    @Test
     fun `getTrendingMovies deduplicates movies across pages`() = runTest {
         val remoteDataSource = FakeTmdbRemoteDataSource(
             trendingByPage = mapOf(
@@ -147,6 +159,20 @@ class MovieRepositoryImplTest {
     }
 
     @Test
+    fun `getTrendingMovies returns movie page error unchanged`() = runTest {
+        val expectedResult = DomainResult.Error(DomainError.Server)
+        val remoteDataSource = FakeTmdbRemoteDataSource(
+            trendingResultByPage = mapOf(1 to expectedResult),
+        )
+        val repository = repository(remoteDataSource)
+
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
+
+        assertEquals(expectedResult, result)
+        assertEquals(listOf(1), remoteDataSource.trendingPages)
+    }
+
+    @Test
     fun `getTrendingMovies maps images and resolved genres`() = runTest {
         val remoteDataSource = FakeTmdbRemoteDataSource(
             trendingByPage = mapOf(
@@ -170,6 +196,32 @@ class MovieRepositoryImplTest {
         assertEquals("https://image.tmdb.org/t/p/w185/poster.jpg", movie.posterUrl)
         assertEquals("https://image.tmdb.org/t/p/w780/backdrop.jpg", movie.backdropUrl)
         assertEquals(listOf("Action"), movie.genres.map { it.name })
+    }
+
+    @Test
+    fun `getMovieGenres fetches requested language once then serves cache`() = runTest {
+        val remoteDataSource = FakeTmdbRemoteDataSource()
+        val repository = repository(remoteDataSource)
+
+        val firstResult = repository.getMovieGenres(language = LanguageCode("nl-NL"))
+        val secondResult = repository.getMovieGenres(language = LanguageCode("nl-NL"))
+
+        assertTrue(firstResult is DomainResult.Success)
+        assertTrue(secondResult is DomainResult.Success)
+        assertEquals(listOf("nl-NL"), remoteDataSource.genreLanguages)
+    }
+
+    @Test
+    fun `getMovieGenres returns genre fetch error without caching`() = runTest {
+        val remoteDataSource = FakeTmdbRemoteDataSource(
+            genresResult = DomainResult.Error(DomainError.Network()),
+        )
+        val repository = repository(remoteDataSource)
+
+        val result = repository.getMovieGenres(language = LanguageCode.EN)
+
+        assertEquals(DomainResult.Error(DomainError.Network()), result)
+        assertEquals(listOf("en"), remoteDataSource.genreLanguages)
     }
 
     @Test
@@ -207,9 +259,23 @@ class MovieRepositoryImplTest {
         assertEquals("tt0133093", detail.imdbId)
     }
 
+    @Test
+    fun `getMovieDetail delegates id and language and returns errors unchanged`() = runTest {
+        val expectedResult = DomainResult.Error(DomainError.NotFound)
+        val remoteDataSource = FakeTmdbRemoteDataSource(detailResult = expectedResult)
+        val repository = repository(remoteDataSource)
+
+        val result = repository.getMovieDetail(movieId = 42, language = LanguageCode("nl-NL"))
+
+        assertEquals(expectedResult, result)
+        assertEquals(42L, remoteDataSource.lastDetailMovieId)
+        assertEquals("nl-NL", remoteDataSource.lastDetailLanguage)
+    }
+
     private class FakeTmdbRemoteDataSource(
-        private val totalPages: Int = 1,
+        private val totalPages: Int? = 1,
         private val trendingByPage: Map<Int, List<TmdbTrendingMovieDto>> = emptyMap(),
+        private val trendingResultByPage: Map<Int, DomainResult<TmdbTrendingMoviesResponse>> = emptyMap(),
         private val genresResult: DomainResult<TmdbGenresResponse> = DomainResult.Success(
             TmdbGenresResponse(genres = listOf(TmdbGenreDto(id = 28, name = "Action")))
         ),
@@ -219,6 +285,10 @@ class MovieRepositoryImplTest {
     ) : TmdbRemoteDataSource {
         val genreLanguages = mutableListOf<String>()
         val trendingPages = mutableListOf<Int>()
+        var lastDetailMovieId: Long? = null
+            private set
+        var lastDetailLanguage: String? = null
+            private set
 
         override suspend fun getTrendingMovies(
             timeWindow: String,
@@ -226,6 +296,7 @@ class MovieRepositoryImplTest {
             page: Int,
         ): DomainResult<TmdbTrendingMoviesResponse> {
             trendingPages += page
+            trendingResultByPage[page]?.let { return it }
             return DomainResult.Success(
                 TmdbTrendingMoviesResponse(
                     page = page,
@@ -243,7 +314,11 @@ class MovieRepositoryImplTest {
         override suspend fun getMovieDetail(
             movieId: Long,
             language: String,
-        ): DomainResult<TmdbMovieDetailDto> = detailResult
+        ): DomainResult<TmdbMovieDetailDto> {
+            lastDetailMovieId = movieId
+            lastDetailLanguage = language
+            return detailResult
+        }
     }
 
     private companion object {

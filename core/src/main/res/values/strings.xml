@@ -4,6 +4,8 @@
 
     <string name="placeholder_dash">—</string>
 
+    <string name="cd_loading">Loading</string>
+
     <string name="error_network">Network error. Check your connection.</string>
     <string name="error_configuration">App configuration error. Check TMDB token configuration.</string>
     <string name="error_unauthorized">Unauthorized. Check TMDB token configuration.</string>

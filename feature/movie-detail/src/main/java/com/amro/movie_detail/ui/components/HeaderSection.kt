@@ -13,11 +13,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import coil.compose.AsyncImage
 import com.amro.core.ui.theme.dimens
 import com.amro.core.ui.theme.spacing
+import com.amro.movie_detail.R as DetailR
 import com.amro.movie_detail.ui.model.MovieDetailUi
 
 @Composable
@@ -41,7 +43,7 @@ fun HeaderSection(
             (movie.backdropUrl ?: movie.posterUrl)?.let { url ->
                 AsyncImage(
                     model = url,
-                    contentDescription = movie.title,
+                    contentDescription = stringResource(DetailR.string.cd_movie_banner, movie.title),
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(shape),

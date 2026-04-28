@@ -22,10 +22,13 @@ fun MovieDetailRoute(
 
     MovieDetailScreen(
         uiState = uiState,
-        onRetry = { viewModel.load(movieId, forceRefresh = true) },
+        onRetry = viewModel::retry,
         onBack = onBack,
         onOpenImdb = { url ->
             runCatching { uriHandler.openUri(url) }
+                .onFailure {
+                    // Ignore for now
+                }
         }
     )
 }

@@ -16,5 +16,5 @@ object MovieDetailTestTags {
     const val POSTER_PLACEHOLDER = "${PREFIX}_poster_placeholder"
     const val OPEN_IMDB_BUTTON = "${PREFIX}_open_imdb_button"
 
-    fun genreTag(index: Int): String = "${PREFIX}_genre_tag_$index"
+    fun genreTag(genreId: Int): String = "${PREFIX}_genre_tag_$genreId"
 }

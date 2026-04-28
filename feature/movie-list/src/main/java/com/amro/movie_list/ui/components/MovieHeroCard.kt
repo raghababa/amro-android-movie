@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.semantics.Role
 import coil.compose.AsyncImage
 import com.amro.core.ui.theme.dimens
 import com.amro.core.ui.theme.spacing
@@ -39,6 +40,8 @@ internal fun MovieHeroCard(
             .height(MaterialTheme.dimens.sizes.heroPosterHeight)
             .clip(shape)
             .clickable(
+                role = Role.Button,
+                onClickLabel = stringResource(R.string.cd_open_movie_details, movie.title),
                 onClick = onClick,
             ),
         shape = shape,
@@ -52,7 +55,7 @@ internal fun MovieHeroCard(
         ) {
             AsyncImage(
                 model = movie.backdropUrl ?: movie.posterUrl,
-                contentDescription = stringResource(R.string.cd_movie_poster, movie.title),
+                contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )

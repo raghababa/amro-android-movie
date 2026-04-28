@@ -3,12 +3,13 @@ package com.amro.movie_detail.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.amro.core.R as CoreR
-import com.amro.core.ui.UiText
-import com.amro.domain.result.DomainError
+import com.amro.core.ui.DomainErrorUiMapper
 import com.amro.domain.result.DomainResult
 import com.amro.domain.usecase.GetMovieDetailUseCase
-import com.amro.movie_detail.mapper.toUi
+import com.amro.movie_detail.mapper.MovieDetailUiMapper
+import com.amro.movie_detail.ui.model.MovieDetailUi
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,46 +19,57 @@ import javax.inject.Inject
 @HiltViewModel
 class MovieDetailViewModel @Inject constructor(
     private val getMovieDetail: GetMovieDetailUseCase,
+    private val movieDetailUiMapper: MovieDetailUiMapper,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<MovieDetailUiState>(MovieDetailUiState.Loading)
+    private val _uiState = MutableStateFlow<MovieDetailUiState>(MovieDetailUiState.Loading())
     val uiState: StateFlow<MovieDetailUiState> = _uiState.asStateFlow()
 
-    private var loadedMovieId: Long? = null
+    private var requestedMovieId: Long? = null
+    private var loadJob: Job? = null
+
+    fun retry() {
+        requestedMovieId?.let { load(movieId = it, forceRefresh = true) }
+    }
 
     fun load(movieId: Long, forceRefresh: Boolean = false) {
-        if (!forceRefresh) {
-            val current = uiState.value
-            if (loadedMovieId == movieId && current is MovieDetailUiState.Content) return
+        val current = uiState.value
+
+        if (!forceRefresh && requestedMovieId == movieId && current is MovieDetailUiState.Content) return
+
+        val previousData = if (requestedMovieId == movieId) {
+            current.previousDataOrNull()
+        } else {
+            null
         }
-        loadedMovieId = movieId
-        _uiState.value = MovieDetailUiState.Loading
-        viewModelScope.launch {
+
+        requestedMovieId = movieId
+        _uiState.value = MovieDetailUiState.Loading(previousData)
+
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             when (val result = getMovieDetail(movieId = movieId)) {
                 is DomainResult.Success -> {
-                    _uiState.value = MovieDetailUiState.Content(result.value.toUi())
+                    _uiState.value = MovieDetailUiState.Content(movieDetailUiMapper.toUi(result.value))
                 }
                 is DomainResult.Error -> {
-                    _uiState.value = result.toUiError()
+                    _uiState.value = result.toUiError(previousData)
                 }
             }
         }
     }
 }
 
-private fun DomainResult.Error.toUiError(): MovieDetailUiState.Error {
-    val (message, retryable) = when (val e = error) {
-        is DomainError.Network -> UiText.StringRes(CoreR.string.error_network) to true
-        is DomainError.Configuration -> UiText.StringRes(CoreR.string.error_configuration) to false
-        DomainError.Unauthorized -> UiText.StringRes(CoreR.string.error_unauthorized) to false
-        DomainError.NotFound -> UiText.StringRes(CoreR.string.error_movie_not_found) to false
-        DomainError.RateLimited -> UiText.StringRes(CoreR.string.error_rate_limited) to true
-        DomainError.Server -> UiText.StringRes(CoreR.string.error_server) to true
-        is DomainError.InvalidInput -> UiText.StringRes(CoreR.string.error_movie_not_found) to false
-        is DomainError.Empty -> UiText.StringRes(CoreR.string.error_empty_result) to false
-        is DomainError.Serialization -> UiText.StringRes(CoreR.string.error_unexpected_response) to false
-        is DomainError.Unknown -> UiText.StringRes(CoreR.string.error_something_went_wrong) to false
-    }
-    return MovieDetailUiState.Error(message = message, isRetryable = retryable)
+private fun DomainResult.Error.toUiError(previousData: MovieDetailUi? = null): MovieDetailUiState.Error {
+    val errorUi = DomainErrorUiMapper.map(
+        error = error,
+        notFoundMessageRes = CoreR.string.error_movie_not_found,
+        invalidInputMessageRes = CoreR.string.error_movie_not_found,
+    )
+    return MovieDetailUiState.Error(
+        message = errorUi.message,
+        isRetryable = errorUi.isRetryable,
+        previousData = previousData,
+    )
 }
 

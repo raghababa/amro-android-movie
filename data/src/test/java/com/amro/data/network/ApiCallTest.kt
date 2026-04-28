@@ -155,6 +155,17 @@ class ApiCallTest {
     }
 
     @Test
+    fun `apiCall maps unexpected exception to unknown error`() = runTest {
+        val cause = IllegalStateException("Unexpected failure")
+        val result = apiCall<String> { throw cause }
+
+        assertTrue(result is DomainResult.Error)
+        val error = (result as DomainResult.Error).error
+        assertTrue(error is DomainError.Unknown)
+        assertEquals(cause, error.cause)
+    }
+
+    @Test
     fun `apiCall rethrows cancellation exception`() {
         assertThrows(CancellationException::class.java) {
             runTest {

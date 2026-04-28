@@ -128,6 +128,97 @@ class TmdbDataIntegrationTest {
     }
 
     @Test
+    fun `trending flow paginates deduplicates and reuses cached genres`() = runTest {
+        server.enqueue(
+            jsonResponse(
+                """
+                {
+                  "genres": [
+                    { "id": 28, "name": "Action" },
+                    { "id": 35, "name": "Comedy" }
+                  ]
+                }
+                """.trimIndent()
+            )
+        )
+        server.enqueue(
+            trendingResponse(
+                page = 1,
+                totalPages = 2,
+                moviesJson = """
+                [
+                  { "id": 10, "title": "Apex", "genre_ids": [28], "popularity": 90.0 },
+                  { "id": 11, "title": "Echo", "genre_ids": [35], "popularity": 80.0 }
+                ]
+                """.trimIndent(),
+            )
+        )
+        server.enqueue(
+            trendingResponse(
+                page = 2,
+                totalPages = 2,
+                moviesJson = """
+                [
+                  { "id": 11, "title": "Echo Duplicate", "genre_ids": [35], "popularity": 80.0 },
+                  { "id": 12, "title": "Nova", "genre_ids": [28], "popularity": 70.0 }
+                ]
+                """.trimIndent(),
+            )
+        )
+        server.enqueue(
+            trendingResponse(
+                page = 1,
+                totalPages = 1,
+                moviesJson = """
+                [
+                  { "id": 13, "title": "Orbit", "genre_ids": [35], "popularity": 60.0 }
+                ]
+                """.trimIndent(),
+            )
+        )
+
+        val firstResult = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
+        val secondResult = repository.getTrendingMovies(timeWindow = TimeWindow.DAY, language = LanguageCode.EN_US)
+
+        assertTrue(firstResult is DomainResult.Success)
+        val firstMovies = (firstResult as DomainResult.Success).value
+        assertEquals(listOf(10L, 11L, 12L), firstMovies.map { it.id })
+        assertEquals(listOf("Action"), firstMovies.first().genres.map { it.name })
+        assertTrue(secondResult is DomainResult.Success)
+        assertEquals(listOf(13L), (secondResult as DomainResult.Success).value.map { it.id })
+
+        assertEquals("/genre/movie/list?language=en", server.takeRequest().path)
+        assertEquals("/trending/movie/week?language=en-US&page=1", server.takeRequest().path)
+        assertEquals("/trending/movie/week?language=en-US&page=2", server.takeRequest().path)
+        assertEquals("/trending/movie/day?language=en-US&page=1", server.takeRequest().path)
+    }
+
+    @Test
+    fun `trending flow continues without genres when genre endpoint fails`() = runTest {
+        server.enqueue(jsonResponse("""{"status_message":"Temporary failure"}""", code = 500))
+        server.enqueue(
+            trendingResponse(
+                page = 1,
+                totalPages = 1,
+                moviesJson = """
+                [
+                  { "id": 10, "title": "Apex", "genre_ids": [28], "popularity": 90.0 }
+                ]
+                """.trimIndent(),
+            )
+        )
+
+        val result = repository.getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
+
+        assertTrue(result is DomainResult.Success)
+        val movie = (result as DomainResult.Success).value.single()
+        assertEquals(10L, movie.id)
+        assertTrue(movie.genres.isEmpty())
+        assertEquals("/genre/movie/list?language=en", server.takeRequest().path)
+        assertEquals("/trending/movie/week?language=en-US&page=1", server.takeRequest().path)
+    }
+
+    @Test
     fun `detail flow integrates retrofit remote source repository and detail mapper`() = runTest {
         server.enqueue(
             jsonResponse(
@@ -181,9 +272,36 @@ class TmdbDataIntegrationTest {
         assertEquals(DomainResult.Error(DomainError.Unauthorized), result)
     }
 
+    @Test
+    fun `detail flow maps not found through remote source and repository`() = runTest {
+        server.enqueue(jsonResponse("""{"status_message":"Movie not found"}""", code = 404))
+
+        val result = repository.getMovieDetail(movieId = 404, language = LanguageCode.EN_US)
+
+        assertEquals(DomainResult.Error(DomainError.NotFound), result)
+        val request = server.takeRequest()
+        assertEquals("/movie/404?language=en-US", request.path)
+        assertEquals("Bearer test-token", request.getHeader("Authorization"))
+    }
+
     private fun jsonResponse(body: String, code: Int = 200): MockResponse =
         MockResponse()
             .setResponseCode(code)
             .setHeader("Content-Type", "application/json")
             .setBody(body)
+
+    private fun trendingResponse(
+        page: Int,
+        totalPages: Int,
+        moviesJson: String,
+    ): MockResponse =
+        jsonResponse(
+            """
+            {
+              "page": $page,
+              "total_pages": $totalPages,
+              "results": $moviesJson
+            }
+            """.trimIndent()
+        )
 }

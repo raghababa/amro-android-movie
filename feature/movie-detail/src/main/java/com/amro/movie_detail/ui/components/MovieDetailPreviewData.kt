@@ -1,5 +1,6 @@
 package com.amro.movie_detail.ui.components
 
+import com.amro.core.links.ExternalUrls
 import com.amro.movie_detail.ui.model.MovieDetailUi
 
 internal val previewMovieDetail = MovieDetailUi(
@@ -12,10 +13,10 @@ internal val previewMovieDetail = MovieDetailUi(
     genres = listOf("Science Fiction", "Action"),
     voteAverage = 8.2,
     voteCount = 25000,
-    budget = "$63,000,000.00",
-    revenue = "$467,000,000.00",
+    budget = "$63M",
+    revenue = "$467M",
     status = "Released",
-    imdbUrl = "https://www.imdb.com/title/tt0133093/",
+    imdbUrl = ExternalUrls.imdbTitleUrl("tt0133093"),
     runtimeMinutes = 136,
     releaseDate = "1999-03-31",
 )

@@ -40,7 +40,7 @@ fun MovieHeroCarousel(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = MaterialTheme.spacing.lg),
+                .padding(horizontal = MaterialTheme.spacing.screenHorizontal),
         ) {
             MovieHeroCard(
                 movie = movie,

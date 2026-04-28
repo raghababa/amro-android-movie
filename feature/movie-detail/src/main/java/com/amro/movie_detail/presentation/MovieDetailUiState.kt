@@ -4,15 +4,26 @@ import com.amro.core.ui.UiText
 import com.amro.movie_detail.ui.model.MovieDetailUi
 
 sealed interface MovieDetailUiState {
-    data object Loading : MovieDetailUiState
+    fun previousDataOrNull(): MovieDetailUi?
+
+    data class Loading(
+        val previousData: MovieDetailUi? = null,
+    ) : MovieDetailUiState {
+        override fun previousDataOrNull(): MovieDetailUi? = previousData
+    }
 
     data class Error(
         val message: UiText,
         val isRetryable: Boolean,
-    ) : MovieDetailUiState
+        val previousData: MovieDetailUi? = null,
+    ) : MovieDetailUiState {
+        override fun previousDataOrNull(): MovieDetailUi? = previousData
+    }
 
     data class Content(
         val movie: MovieDetailUi,
-    ) : MovieDetailUiState
+    ) : MovieDetailUiState {
+        override fun previousDataOrNull(): MovieDetailUi = movie
+    }
 }
 

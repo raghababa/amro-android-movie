@@ -2,25 +2,28 @@ package com.amro.movie_list.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.amro.core.R as CoreR
-import com.amro.core.ui.UiText
+import com.amro.domain.model.Genre
 import com.amro.domain.model.MovieSortField
 import com.amro.domain.model.MovieSummary
 import com.amro.domain.model.SortOrder
+import com.amro.domain.repository.LanguageCode
 import com.amro.domain.repository.TimeWindow
-import com.amro.domain.result.DomainError
 import com.amro.domain.result.DomainResult
 import com.amro.domain.usecase.FilterMoviesByGenreUseCase
 import com.amro.domain.usecase.GetMovieGenresUseCase
 import com.amro.domain.usecase.GetTrendingMoviesUseCase
 import com.amro.domain.usecase.SortMoviesUseCase
-import com.amro.movie_list.ui.model.GenreUi
-import com.amro.movie_list.ui.model.MovieSummaryUi
 import com.amro.movie_list.ui.state.MovieListUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,30 +33,52 @@ class MovieListViewModel @Inject constructor(
     private val getMovieGenres: GetMovieGenresUseCase,
     private val filterMoviesByGenre: FilterMoviesByGenreUseCase,
     private val sortMovies: SortMoviesUseCase,
+    private val uiMapper: MovieListUiMapper,
 ) : ViewModel() {
 
-    private var dataState = MovieListDataState()
+    private val internalState = MutableStateFlow(MovieListState())
+    private var loadJob: Job? = null
 
-    private val _uiState = MutableStateFlow<MovieListUiState>(MovieListUiState.Loading)
-    val uiState: StateFlow<MovieListUiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<MovieListUiState> = internalState
+        .map(::toUiState)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = toUiState(internalState.value),
+        )
 
     init {
         load()
     }
 
     fun onGenreSelected(genreId: Int?) {
-        dataState = dataState.copy(selectedGenreId = genreId)
-        updateUiState()
+        internalState.update { state ->
+            if (state.selectedGenreId == genreId) return@update state
+
+            state.copy(
+                selectedGenreId = genreId,
+            )
+        }
     }
 
     fun onSortFieldSelected(field: MovieSortField) {
-        dataState = dataState.copy(sortField = field)
-        updateUiState()
+        internalState.update { state ->
+            if (state.sortField == field) return@update state
+
+            state.copy(
+                sortField = field,
+            )
+        }
     }
 
     fun onSortOrderChanged(order: SortOrder) {
-        dataState = dataState.copy(sortOrder = order)
-        updateUiState()
+        internalState.update { state ->
+            if (state.sortOrder == order) return@update state
+
+            state.copy(
+                sortOrder = order,
+            )
+        }
     }
 
     fun onRetry() {
@@ -61,92 +86,83 @@ class MovieListViewModel @Inject constructor(
     }
 
     private fun load() {
-        _uiState.value = MovieListUiState.Loading
-        viewModelScope.launch {
-            when (val genresResult = getMovieGenres(language = "en")) {
-                is DomainResult.Success -> {
-                    dataState = dataState.copy(
-                        availableGenres = genresResult.value
-                            .map { GenreUi(id = it.id, name = it.name) }
-                            .sortedBy { it.name }
-                    )
-                }
-                is DomainResult.Error -> {
-                    _uiState.value = genresResult.toUiError()
-                    return@launch
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            internalState.update { state ->
+                state.copy(loadState = MovieListLoadState.Loading)
+            }
+
+            val (genresResult, moviesResult) = fetchListData()
+
+            handleLoadResult(
+                genresResult = genresResult,
+                moviesResult = moviesResult,
+            )
+        }
+    }
+
+    private fun handleLoadResult(
+        genresResult: DomainResult<List<Genre>>,
+        moviesResult: DomainResult<List<MovieSummary>>,
+    ) {
+        when (moviesResult) {
+            is DomainResult.Success -> {
+                internalState.update { state ->
+                    state.withGenresResult(genresResult)
+                        .copy(
+                            allMovies = moviesResult.value,
+                            loadState = MovieListLoadState.Loaded,
+                        )
                 }
             }
 
-            when (val moviesResult = getTrendingMovies(timeWindow = TimeWindow.WEEK, language = "en-US")) {
-                is DomainResult.Success -> {
-                    dataState = dataState.copy(allMovies = moviesResult.value)
-                    updateUiState()
-                }
-
-                is DomainResult.Error -> {
-                    _uiState.value = moviesResult.toUiError()
+            is DomainResult.Error -> {
+                internalState.update { state ->
+                    state
+                        .withGenresResult(genresResult)
+                        .copy(
+                            loadState = MovieListLoadState.Failed(moviesResult.error),
+                        )
                 }
             }
         }
     }
 
-    private fun updateUiState() {
-        val state = dataState
-        val filtered = filterMoviesByGenre(state.allMovies, state.selectedGenreId)
-        val sorted = sortMovies(filtered, state.sortField, state.sortOrder)
-        val currentMovies = sorted.map { it.toUi() }
-
-        if (currentMovies.isEmpty()) {
-            _uiState.value = MovieListUiState.Empty(
-                availableGenres = state.availableGenres,
-                selectedGenreId = state.selectedGenreId,
-                sortField = state.sortField,
-                sortOrder = state.sortOrder,
-            )
-            return
+    private suspend fun fetchListData(): Pair<DomainResult<List<Genre>>, DomainResult<List<MovieSummary>>> =
+        coroutineScope {
+            val genresDeferred = async { getMovieGenres(language = LanguageCode.EN) }
+            val moviesDeferred = async {
+                getTrendingMovies(timeWindow = TimeWindow.WEEK, language = LanguageCode.EN_US)
+            }
+            genresDeferred.await() to moviesDeferred.await()
         }
 
-        _uiState.value = MovieListUiState.Content(
-            movies = currentMovies,
-            availableGenres = state.availableGenres,
-            selectedGenreId = state.selectedGenreId,
-            sortField = state.sortField,
-            sortOrder = state.sortOrder,
+    private fun toUiState(state: MovieListState): MovieListUiState {
+        val filtered = filterMoviesByGenre(state.allMovies, state.selectedGenreId)
+        val sorted = sortMovies(filtered, state.sortField, state.sortOrder)
+        return uiMapper.map(
+            state = state,
+            movies = sorted,
         )
     }
 }
 
-private data class MovieListDataState(
-    val allMovies: List<MovieSummary> = emptyList(),
-    val availableGenres: List<GenreUi> = emptyList(),
-    val selectedGenreId: Int? = null,
-    val sortField: MovieSortField = MovieSortField.POPULARITY,
-    val sortOrder: SortOrder = SortOrder.DESCENDING,
-)
+private fun MovieListState.withGenresResult(
+    genresResult: DomainResult<List<Genre>>,
+): MovieListState =
+    when (genresResult) {
+        is DomainResult.Success -> {
+            val genres = genresResult.value
+            copy(
+                genres = genres,
+                selectedGenreId = selectedGenreId?.takeIf { id ->
+                    genres.any { it.id == id }
+                },
+                genreLoadError = null,
+            )
+        }
 
-private fun DomainResult.Error.toUiError(): MovieListUiState.Error {
-    val (message, retryable) = when (val e = error) {
-        is DomainError.Network -> UiText.StringRes(CoreR.string.error_network) to true
-        is DomainError.Configuration -> UiText.StringRes(CoreR.string.error_configuration) to false
-        DomainError.Unauthorized -> UiText.StringRes(CoreR.string.error_unauthorized) to false
-        DomainError.NotFound -> UiText.StringRes(CoreR.string.error_not_found) to false
-        DomainError.RateLimited -> UiText.StringRes(CoreR.string.error_rate_limited) to true
-        DomainError.Server -> UiText.StringRes(CoreR.string.error_server) to true
-        is DomainError.InvalidInput -> UiText.StringRes(CoreR.string.error_something_went_wrong) to false
-        is DomainError.Empty -> UiText.StringRes(CoreR.string.error_empty_result) to false
-        is DomainError.Serialization -> UiText.StringRes(CoreR.string.error_unexpected_response) to false
-        is DomainError.Unknown -> UiText.StringRes(CoreR.string.error_something_went_wrong) to false
+        is DomainResult.Error -> copy(
+            genreLoadError = genresResult.error,
+        )
     }
-    return MovieListUiState.Error(message = message, isRetryable = retryable)
-}
-
-private fun MovieSummary.toUi(): MovieSummaryUi =
-    MovieSummaryUi(
-        id = id,
-        title = title,
-        posterUrl = posterUrl,
-        backdropUrl = backdropUrl,
-        genreNames = genres.map { it.name },
-        releaseDate = releaseDate,
-    )
-

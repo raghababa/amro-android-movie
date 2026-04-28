@@ -26,7 +26,7 @@ fun GenreFilterRow(
 ) {
     LazyRow(
         modifier = modifier
-            .padding(horizontal = MaterialTheme.spacing.lg),
+            .padding(horizontal = MaterialTheme.spacing.screenHorizontal),
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
     ) {
         item(key = "all") {
