@@ -21,4 +21,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "AMRO Movie Explorer"
 include(":app")
- 
+include(":core")
+include(":domain")
+include(":data")
+include(":feature:movie-list")
+include(":feature:movie-detail")

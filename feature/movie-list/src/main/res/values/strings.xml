@@ -1,0 +1,18 @@
+<resources>
+    <string name="filter_all">All</string>
+
+    <string name="cd_movie_poster">Poster for %1$s</string>
+    <string name="cd_open_movie_details">Open details for %1$s</string>
+
+    <string name="empty_no_movies_found">No movies found</string>
+    <string name="empty_no_movies_match_filter">No movies match this filter</string>
+    <string name="empty_go_back">Go back!</string>
+
+    <string name="sort_title">Sort</string>
+    <string name="sort_field_popularity">Popularity</string>
+    <string name="sort_field_title">Title</string>
+    <string name="sort_field_release">Release</string>
+    <string name="sort_order_asc">Asc</string>
+    <string name="sort_order_desc">Desc</string>
+</resources>
+
