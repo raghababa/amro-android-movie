@@ -5,6 +5,12 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+private val enforceTmdbTokenForPackagingTasks: Boolean =
+    gradle.startParameter.taskNames.any { taskName ->
+        val t = taskName.lowercase()
+        t.contains("assemble") || t.contains("install") || t.contains("bundle")
+    }
+
 android {
     namespace = "com.amro.data"
     compileSdk {
@@ -27,11 +33,7 @@ android {
             .orElse(false)
             .get()
 
-        val enforceTokenForTasks = gradle.startParameter.taskNames.any { taskName ->
-            val t = taskName.lowercase()
-            t.contains("assemble") || t.contains("install") || t.contains("bundle")
-        }
-        if (enforceTokenForTasks && !allowMissingToken && tmdbBearerToken.isBlank()) {
+        if (enforceTmdbTokenForPackagingTasks && !allowMissingToken && tmdbBearerToken.isBlank()) {
             throw GradleException(
                 "Missing TMDB bearer token. Set TMDB_BEARER_TOKEN in your Gradle properties.\n" +
                     "Example (user-level gradle.properties):\n" +
